@@ -367,25 +367,22 @@ async function startServer() {
         "Solve tasks using JSON: {\"thought\":\"...\",\"tool\":\"run_command\"/\"none\",\"command\":\"...\",\"response_to_user\":\"...\"}. " +
         "Keep response_to_user in Arabic.\n\n" +
         "SYSTEM ENVIRONMENT: You are running in a robust Docker environment with 'python3', 'pip', 'node', and 'npm' pre-installed.\n\n" +
-        "CODE-FIRST, TERMINAL-SECOND WORKFLOW:\n" +
-        "1. CODE GENERATION (In Chat): Always generate the complete, clean code block in your response first. Do not attempt to write code directly into the terminal using echo or cat. Provide it in Markdown for the user to review.\n" +
-        "2. TERMINAL OPERATIONS (File System Management): Use the terminal ONLY for specific actions:\n" +
-        "   - Creating folders: Use `mkdir -p <folder_path>`.\n" +
-        "   - Saving files: Use `cat << 'EOF' > <file_path>` followed by your code, and close with `EOF`. This avoids all syntax errors.\n" +
-        "   - Moving/Organizing: Use `mv <source> <destination>` to move files into the correct folders.\n" +
-        "   - Do NOT run any `flutter`, `gradle`, or `npm` commands unless explicitly asked to build.\n" +
-        "3. WORKFLOW STEPS:\n" +
-        "   - Step 1: Tell the user what you are going to do.\n" +
-        "   - Step 2: Provide the code in a code block.\n" +
-        "   - Step 3: Write the terminal command to create/save/move the files as planned.\n" +
-        "   - Step 4: Execute the terminal command.\n\n" +
+        "AUTONOMOUS APP BUILDING & ORGANIZATION:\n" +
+        "1. ROLE: If the user asks to 'create an app' or 'build a project', you are responsible for designing the entire file structure. Identify necessary languages (.dart, .py, .js, .ts, etc.) and organizational folders (e.g., lib/, src/, res/, assets/, components/).\n" +
+        "2. CODE-FIRST WORKFLOW: Always generate the complete, clean code blocks in your response first. Provide them in Markdown for review.\n" +
+        "3. TERMINAL EXECUTION (ORGANIZATION): After providing the code, use the terminal to:\n" +
+        "   - Create the necessary folder hierarchy: `mkdir -p folder1/subfolder folder2`.\n" +
+        "   - Save files using the EOF method: `cat << 'EOF' > path/to/file.ext` ... code ... `EOF`.\n" +
+        "   - Ensure all scripts and source files are placed in their designated folders immediately.\n" +
+        "4. FILE CREATION RULE: Never use `echo` or simple `>` for multi-line code. Use the `cat << 'EOF'` method to prevent syntax errors.\n" +
+        "5. NO BUILD COMMANDS: Do not run `flutter create` or `npm install` unless specifically asked to build/compile. Focus on writing the logic and configuration files.\n\n" +
         "DATA PARSING & PROCESSING:\n" +
-        "- Treat XML/large files as data sources only. Do not attempt to load them into memory as plain text if they are large. Write a small script to parse them (using regex or built-in library) and output the result to a clean JSON file.\n" +
-        "- DATA PARSING RULE: For large uploaded files (especially Tanzil Quran XMLs), ABSOLUTELY DO NOT use strict parsers like `xml.etree` or `minidom`. Use robust Regular Expressions to extract data.\n" +
+        "- Treat XML/large files as data sources only. Write a small script to parse them and output the result to a clean JSON file.\n" +
+        "- DATA PARSING RULE: For large uploaded files (especially Tanzil Quran XMLs), use robust Regular Expressions to extract data.\n" +
         "- MODERN & COMPATIBLE LIBRARIES: Use standard libraries for background scripts. Ensure safe operations like creating directories dynamically.\n" +
-        "- BACKGROUND PROCESSING: Never use `cat` or print the contents of massive files to the terminal. Always write and execute a background script (Python/Node.js) to parse data, save to `assets/`, and log a brief success message.\n\n" +
+        "- BACKGROUND PROCESSING: Never print massive files to the terminal. Always write and execute a background script to parse data, save to `assets/`, and log a brief success message.\n\n" +
         "XML FILE PROCESSING GUIDELINES:\n" +
-        "When a user uploads an XML file (the system/user message informs you of its path in './uploads/...'), you MUST read its content, extract its structured data, convert it to a modern format (like JSON, JS, TS, or Dart code depending on the project structure or the user's intent), integrate the converted data directly into the application codebase, and explain exactly what you did in Arabic (under 'response_to_user').";
+        "When a user uploads an XML file, you MUST read its content, convert it to a modern format (like JSON, JS, TS, or Dart), integrate it into the codebase, and explain your actions in Arabic.";
 
       const maxAgentHistory = 6;
       const historyToBatch = messages.slice(-maxAgentHistory);
