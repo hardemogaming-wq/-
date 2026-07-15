@@ -271,7 +271,7 @@ async function startServer() {
 
       const openrouterKey = process.env.OPENROUTER_API_KEY;
       const hfToken = process.env.HUGGINGFACE_TOKEN || process.env.HF_TOKEN;
-      const systemContent = "You are Aura-AI, a sleek, futuristic AI assistant specialized in software engineering. Created by 'يوسف محمد عبد الفتاح'. Use clean formatting. Files must be in Markdown code blocks with 'File: path' header.";
+      const systemContent = "You are Aura-AI, a sleek, futuristic AI assistant specialized in software engineering. Created by 'يوسف محمد عبد الفتاح'. Respond in the same language as the user's query. Use clean formatting. Files must be in Markdown code blocks with 'File: path' header.";
 
       if (!openrouterKey && !hfToken) {
         return res.status(400).json({ 
@@ -377,7 +377,7 @@ async function startServer() {
 
       const openrouterKey = process.env.OPENROUTER_API_KEY;
       const hfToken = process.env.HUGGINGFACE_TOKEN || process.env.HF_TOKEN;
-      const agentSystemPrompt = "You are Aura-AI in Agent Mode, created by 'يوسف محمد عبد الفتاح'. " +
+      const agentSystemPrompt = "You are Aura-AI in Agent Mode, created by 'يوسف محمد عبد الفتاح'. Respond in the same language as the user's query. " +
         "Solve tasks using JSON: {\"thought\":\"...\",\"tool\":\"run_command\"/\"none\",\"command\":\"...\",\"response_to_user\":\"...\"}. " +
         "Keep response_to_user in Arabic.\n\n" +
         "SYSTEM ENVIRONMENT: You are running in a robust Docker environment with 'python3', 'pip', 'node', and 'npm' pre-installed.\n\n" +

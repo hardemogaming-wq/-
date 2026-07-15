@@ -26,7 +26,7 @@ export function extractSandboxFiles(text: string): SandboxFile[] {
 
   // 1. Regular expression to match:
   // ```lang [FILE: path] or ```lang FILE: path
-  const blockHeaderRegex = /```(\w*)\s*(?:\[FILE:\s*([^\]\s]+)\]|FILE:\s*(\S+))?\s*\n([\s\S]*?)```/gi;
+  const blockHeaderRegex = /```(\w*)\s*(?:\[FILE:\s*([^\]\s]+)\]|FILE:\s*(\S+))?\s*[\r\n]+([\s\S]*?)```/gi;
   let match;
 
   while ((match = blockHeaderRegex.exec(text)) !== null) {
@@ -36,7 +36,7 @@ export function extractSandboxFiles(text: string): SandboxFile[] {
 
     // Check inside the block's first few lines for comment declarations
     if (!filePath) {
-      const firstLines = blockContent.split("\n").slice(0, 3);
+      const firstLines = blockContent.split("\n").slice(0, 5);
       for (const line of firstLines) {
         const commentMatch = line.match(/(?:\/\/|#|<!--|\/\*)\s*(?:FILE|File|file|Path|path|PATH):\s*([a-zA-Z0-9_\-\.\/]+)\s*(?:-->|\*\/)?/i);
         if (commentMatch) {
@@ -58,7 +58,7 @@ export function extractSandboxFiles(text: string): SandboxFile[] {
   }
 
   // 2. Regular expression to match separate "File: path" followed by ```lang codeblock
-  const separateHeaderRegex = /(?:File|FILE|Path|PATH|الملف):\s*([a-zA-Z0-9_\-\.\/]+)\s*\n```(\w*)\n([\s\S]*?)```/gi;
+  const separateHeaderRegex = /(?:File|FILE|Path|PATH|الملف):\s*([a-zA-Z0-9_\-\.\/]+)\s*[\r\n]+```(\w*)\s*[\r\n]+([\s\S]*?)```/gi;
   while ((match = separateHeaderRegex.exec(text)) !== null) {
     const filePath = cleanFilePath(match[1]);
     const language = match[2] || "txt";
