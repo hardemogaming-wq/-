@@ -1,5 +1,10 @@
-# Use official Node.js image
-FROM node:20-alpine
+# Use official Node.js Debian-based image
+FROM node:20-bullseye
+
+# Install Python 3, pip, and Git
+RUN apt-get update && \
+    apt-get install -y python3 python3-pip git && \
+    rm -rf /var/lib/apt/lists/*
 
 # Set working directory
 WORKDIR /app
@@ -7,8 +12,8 @@ WORKDIR /app
 # Copy package files first for caching
 COPY package*.json ./
 
-# Install dependencies and git
-RUN apk add --no-cache git && npm install
+# Install dependencies
+RUN npm install
 
 # Copy the rest of the application files
 COPY . .
@@ -16,7 +21,8 @@ COPY . .
 # Build the client app and compile server.ts to dist/server.cjs
 RUN npm run build
 
-# Expose port 3000 (Hugging Face Spaces or Render will route to this port or inject PORT env)
+# Railway injects PORT environment variable. We expose 3000 as a default.
+ENV PORT 3000
 EXPOSE 3000
 
 # Set environment variable for production
