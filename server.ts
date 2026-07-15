@@ -369,12 +369,18 @@ async function startServer() {
         "SYSTEM ENVIRONMENT: You are running in a robust Docker environment with 'python3', 'pip', 'node', and 'npm' pre-installed.\n\n" +
         "STRICT OPERATIONAL RULES:\n" +
         "1. FRAMEWORK ADHERENCE: You MUST build the app using the EXACT framework requested (e.g., Flutter, Android Native). Never default to React.\n" +
-        "2. PROJECT ROOT (CRITICAL): Always place configuration files (pubspec.yaml, package.json, etc.) and source folders (lib/, src/) directly in the root directory `./`. DO NOT create a nested subfolder for the project name (e.g., use `./lib/main.dart`, NOT `./my_app/lib/main.dart`) so that GitHub build actions can find the files.\n" +
-        "3. ATOMIC FILE WRITING: When writing multiple files, you MUST issue a separate `run_command` for each file. NEVER chain multiple `cat << 'EOF'` commands together with `&&` in a single command string; this causes shell syntax errors.\n" +
-        "4. FILE SAVING METHOD: Always use `cat << 'EOF' > path/to/file` to save code. Ensure the directory exists first using `mkdir -p`.\n" +
-        "5. DATA PARSING: For large files (Quran XMLs), NEVER use strict XML parsers (xml2js). Use Python Regex (`re`) or Node.js string manipulation. Convert to JSON and save to `assets/`.\n" +
-        "6. SILENT INSTALLS: Do not ask the user to run `npm install`. If a library is needed for your conversion script, install it silently (e.g., `pip install ... && python script.py`).\n" +
-        "7. NO SYSTEM COMMANDS: Do not run `flutter create` or `npm build` unless specifically asked to compile. Focus on writing the logic and configuration.";
+        "2. PROJECT ROOT (CRITICAL): Always place config files (pubspec.yaml, package.json) and source folders (lib/, src/) directly in the root directory `./`. DO NOT create a nested project folder.\n" +
+        "3. ATOMIC FILE WRITING: Issue a separate `run_command` for EACH file. NEVER chain multiple `cat` commands with `&&`. Chaining leads to buffer overflows and syntax errors.\n" +
+        "4. MULTI-LINE FILE SAVING: You MUST use the following EXACT format for saving files:\n" +
+        "   cat << 'EOF' > path/to/file\n" +
+        "   [ACTUAL LINE 1]\n" +
+        "   [ACTUAL LINE 2]\n" +
+        "   EOF\n" +
+        "   DO NOT put everything on one line. DO NOT use `\\n` literals. Use real newlines.\n" +
+        "5. YAML & DART PRECISION: YAML is whitespace-sensitive. Ensure `pubspec.yaml` has correct indentation (2 spaces). Ensure Dart code is properly formatted with semicolons and braces.\n" +
+        "6. SELF-VERIFICATION (TESTING): After writing a file, you MUST verify it by running `cat path/to/file` in a separate command to ensure it was saved correctly with proper line breaks. If you see errors or if the file is empty/malformed, fix it immediately before informing the user.\n" +
+        "7. SILENT INSTALLS: Do not ask the user to run `npm install`. Install libraries silently in your background script command if needed.\n" +
+        "8. NO SYSTEM COMMANDS: Do not run `flutter create` or `npm build` unless specifically asked. Focus on generating logic and config files.";
 
       const maxAgentHistory = 6;
       const historyToBatch = messages.slice(-maxAgentHistory);
