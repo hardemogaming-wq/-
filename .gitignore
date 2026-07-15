@@ -1,0 +1,14 @@
+node_modules/
+build/
+dist/
+coverage/
+.DS_Store
+*.log
+.env*
+!.env.example
+
+# Exclude uploaded files and generated data from triggering live reload / server restarts
+uploads/
+quran_data.json
+tafsir_muyassar.json
+english_translation_data.json

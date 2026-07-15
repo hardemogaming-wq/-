@@ -1,0 +1,8 @@
+{
+  "name": "Aura-AI Client",
+  "description": "A sleek, futuristic, dark-themed AI Chat client connected to the Aura-AI coding models with full markdown support, code highlighting, and chat history preservation.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
