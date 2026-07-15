@@ -288,7 +288,7 @@ async function startServer() {
 
       const formattedMessages = sanitizeMessages(historyToBatch, systemContent);
 
-      const model = openrouterKey ? "laguna/m1:free" : "Qwen/Qwen3-Coder-30B-A3B-Instruct";
+      const model = openrouterKey ? "google/gemini-2.0-flash-exp:free" : "Qwen/Qwen3-Coder-30B-A3B-Instruct";
 
       console.log(`[Aura-AI] Forwarding to ${openrouterKey ? 'OpenRouter' : 'Router'} (Model: ${model}, Stream: ${stream})...`);
       
@@ -411,7 +411,7 @@ async function startServer() {
         ? "https://openrouter.ai/api/v1/chat/completions"
         : "https://router.huggingface.co/v1/chat/completions";
 
-      const model = openrouterKey ? "laguna/m1:free" : "Qwen/Qwen3-Coder-30B-A3B-Instruct";
+      const model = openrouterKey ? "google/gemini-2.0-flash-exp:free" : "Qwen/Qwen3-Coder-30B-A3B-Instruct";
 
       let currentHistory = sanitizeMessages(historyToBatch, agentSystemPrompt);
 
