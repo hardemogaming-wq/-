@@ -293,10 +293,10 @@ async function startServer() {
           "Authorization": `Bearer ${hfToken}`,
         },
         body: JSON.stringify({
-          model: "Qwen/Qwen2.5-Coder-32B-Instruct",
+          model: "Qwen/Qwen3-Coder-30B-A3B-Instruct",
           messages: formattedMessages,
           stream: stream,
-          max_tokens: 4096,
+          max_tokens: 8192,
         }),
       });
 
@@ -412,10 +412,10 @@ async function startServer() {
               "Authorization": `Bearer ${hfToken}`,
             },
             body: JSON.stringify({
-              model: "Qwen/Qwen2.5-Coder-32B-Instruct",
+              model: "Qwen/Qwen3-Coder-30B-A3B-Instruct",
               messages: currentHistory,
               stream: false, 
-              max_tokens: 4096,
+              max_tokens: 8192,
             }),
           });
 
