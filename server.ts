@@ -269,31 +269,44 @@ async function startServer() {
         return res.status(400).json({ error: "Messages array is required." });
       }
 
+      const openrouterKey = process.env.OPENROUTER_API_KEY;
       const hfToken = process.env.HUGGINGFACE_TOKEN || process.env.HF_TOKEN;
       const systemContent = "You are Aura-AI, a sleek, futuristic AI assistant specialized in software engineering. Created by 'يوسف محمد عبد الفتاح'. Use clean formatting. Files must be in Markdown code blocks with 'File: path' header.";
 
-      if (!hfToken) {
+      if (!openrouterKey && !hfToken) {
         return res.status(400).json({ 
-          error: "مفتاح HUGGINGFACE_TOKEN غير موجود. الرجاء إضافته في إعدادات AI Studio (Secrets) لتتمكن من استخدام نموذج Qwen." 
+          error: "مفتاح OPENROUTER_API_KEY أو HUGGINGFACE_TOKEN غير موجود. الرجاء إضافته في إعدادات AI Studio (Secrets)." 
         });
       }
       
-      const apiUrl = "https://router.huggingface.co/v1/chat/completions";
+      const apiUrl = openrouterKey 
+        ? "https://openrouter.ai/api/v1/chat/completions"
+        : "https://router.huggingface.co/v1/chat/completions";
+
       const maxHistory = 10;
       const historyToBatch = messages.slice(-maxHistory);
 
       const formattedMessages = sanitizeMessages(historyToBatch, systemContent);
 
-      console.log(`[Aura-AI] Forwarding to Router (Model: Qwen/Qwen2.5-Coder-32B-Instruct, Stream: ${stream})...`);
+      const model = openrouterKey ? "openai/gpt-oss-120b:free" : "Qwen/Qwen3-Coder-30B-A3B-Instruct";
+
+      console.log(`[Aura-AI] Forwarding to ${openrouterKey ? 'OpenRouter' : 'Router'} (Model: ${model}, Stream: ${stream})...`);
       
+      const headers: any = {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${openrouterKey || hfToken}`,
+      };
+
+      if (openrouterKey) {
+        headers["HTTP-Referer"] = process.env.APP_URL || "https://ai.studio/build";
+        headers["X-Title"] = "Aura-AI Builder";
+      }
+
       const response = await fetch(apiUrl, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${hfToken}`,
-        },
+        headers: headers,
         body: JSON.stringify({
-          model: "Qwen/Qwen3-Coder-30B-A3B-Instruct",
+          model: model,
           messages: formattedMessages,
           stream: stream,
           max_tokens: 8192,
@@ -362,6 +375,7 @@ async function startServer() {
         return res.status(400).json({ error: "Messages array is required." });
       }
 
+      const openrouterKey = process.env.OPENROUTER_API_KEY;
       const hfToken = process.env.HUGGINGFACE_TOKEN || process.env.HF_TOKEN;
       const agentSystemPrompt = "You are Aura-AI in Agent Mode, created by 'يوسف محمد عبد الفتاح'. " +
         "Solve tasks using JSON: {\"thought\":\"...\",\"tool\":\"run_command\"/\"none\",\"command\":\"...\",\"response_to_user\":\"...\"}. " +
@@ -387,13 +401,17 @@ async function startServer() {
       res.setHeader("Cache-Control", "no-cache");
       res.setHeader("Connection", "keep-alive");
 
-      if (!hfToken) {
-        res.write(`data: ${JSON.stringify({ error: "مفتاح HUGGINGFACE_TOKEN غير موجود. الرجاء إضافته في إعدادات AI Studio (Secrets) لتتمكن من استخدام نموذج Qwen." })}\n\n`);
+      if (!openrouterKey && !hfToken) {
+        res.write(`data: ${JSON.stringify({ error: "مفتاح OPENROUTER_API_KEY أو HUGGINGFACE_TOKEN غير موجود. الرجاء إضافته في إعدادات AI Studio (Secrets)." })}\n\n`);
         res.write("data: [DONE]\n\n");
         return res.end();
       }
 
-      const apiUrl = "https://router.huggingface.co/v1/chat/completions";
+      const apiUrl = openrouterKey 
+        ? "https://openrouter.ai/api/v1/chat/completions"
+        : "https://router.huggingface.co/v1/chat/completions";
+
+      const model = openrouterKey ? "openai/gpt-oss-120b:free" : "Qwen/Qwen3-Coder-30B-A3B-Instruct";
 
       let currentHistory = sanitizeMessages(historyToBatch, agentSystemPrompt);
 
@@ -405,14 +423,21 @@ async function startServer() {
         console.log(`[Agent-Loop] Iteration ${iterations}`);
 
         try {
+          const headers: any = {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${openrouterKey || hfToken}`,
+          };
+
+          if (openrouterKey) {
+            headers["HTTP-Referer"] = process.env.APP_URL || "https://ai.studio/build";
+            headers["X-Title"] = "Aura-AI Builder";
+          }
+
           const response = await fetch(apiUrl, {
             method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${hfToken}`,
-            },
+            headers: headers,
             body: JSON.stringify({
-              model: "Qwen/Qwen3-Coder-30B-A3B-Instruct",
+              model: model,
               messages: currentHistory,
               stream: false, 
               max_tokens: 8192,
