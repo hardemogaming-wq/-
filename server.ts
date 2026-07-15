@@ -296,7 +296,7 @@ async function startServer() {
           model: "Qwen/Qwen2.5-Coder-32B-Instruct",
           messages: formattedMessages,
           stream: stream,
-          max_tokens: 2048,
+          max_tokens: 4096,
         }),
       });
 
@@ -415,6 +415,7 @@ async function startServer() {
               model: "Qwen/Qwen2.5-Coder-32B-Instruct",
               messages: currentHistory,
               stream: false, 
+              max_tokens: 4096,
             }),
           });
 
