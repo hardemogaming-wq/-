@@ -58,7 +58,7 @@ export function extractSandboxFiles(text: string): SandboxFile[] {
   }
 
   // 2. Regular expression to match separate "File: path" followed by ```lang codeblock
-  const separateHeaderRegex = /(?:File|FILE|Path|PATH|الملف):\s*([a-zA-Z0-9_\-\.\/]+)\s*[\r\n]+```(\w*)\s*[\r\n]+([\s\S]*?)```/gi;
+  const separateHeaderRegex = /(?:\*\*|__)?(?:File|FILE|Path|PATH|الملف):\s*([a-zA-Z0-9_\-\.\/]+)(?:\*\*|__)?\s*[\r\n]+```(\w*)\s*[\r\n]+([\s\S]*?)```/gi;
   while ((match = separateHeaderRegex.exec(text)) !== null) {
     const filePath = cleanFilePath(match[1]);
     const language = match[2] || "txt";
