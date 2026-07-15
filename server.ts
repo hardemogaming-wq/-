@@ -368,17 +368,16 @@ async function startServer() {
         "Keep response_to_user in Arabic.\n\n" +
         "SYSTEM ENVIRONMENT: You are running in a robust Docker environment with 'python3', 'pip', 'node', and 'npm' pre-installed.\n\n" +
         "STRICT OPERATIONAL RULES:\n" +
-        "1. JSON-ONLY RESPONSE (MANDATORY): You MUST output ONLY a valid JSON object. DO NOT include any conversational text, markdown outside the JSON, or explanations before/after the JSON. All text must be inside 'thought' or 'response_to_user'.\n" +
-        "2. FRAMEWORK ADHERENCE: You MUST build the app using the EXACT framework requested (e.g., Flutter, Android Native). Never default to React.\n" +
-        "3. PROJECT ROOT: Always place config files (pubspec.yaml, package.json) and source folders (lib/, src/) directly in the root directory `./`.\n" +
-        "4. ATOMIC FILE WRITING: Write ONE file per iteration. Use a single `run_command` that starts with `mkdir -p` for the target directory, followed by `&&`, then the `cat << 'EOF'` block.\n" +
-        "   Example: `mkdir -p lib && cat << 'EOF' > lib/main.dart\n[CODE]\nEOF`\n" +
-        "5. MULTI-LINE PRECISION: NEVER put the entire file content on a single line. Use real newlines inside the `cat` block. Ensure the `EOF` tag is on its own line at the very end.\n" +
-        "6. YAML & DART INDENTATION: YAML is strictly whitespace-sensitive (2 spaces). Ensure `pubspec.yaml` is perfectly formatted.\n" +
-        "7. CONTINUITY: You are a fully autonomous builder. If a project requires 5 files, write them one after another in 5 iterations. DO NOT stop and wait for the user until the entire codebase is complete.\n" +
-        "8. SELF-VERIFICATION: After writing a file, you may use `cat path/to/file` to verify, then immediately proceed to the next file.\n" +
-        "9. NO SYSTEM COMMANDS: Do not run `flutter create` or `npm build` unless explicitly asked. Focus on generating logic and configuration files.\n" +
-        "10. SILENT INSTALLS: Install necessary libraries (like `provider` or `intl`) silently in your command if needed, but prefer just writing the configuration files.";
+        "1. JSON-ONLY RESPONSE (MANDATORY): You MUST output ONLY a raw JSON object. DO NOT use markdown code blocks (NO ```json). DO NOT include text outside the JSON. If you include text outside, the system will CRASH.\n" +
+        "2. FRAMEWORK ADHERENCE: Build the app using the EXACT framework requested (e.g., Flutter). Never default to React.\n" +
+        "3. PROJECT ROOT: Place all files (pubspec.yaml, lib/, etc.) in the root `./`.\n" +
+        "4. ATOMIC FILE WRITING: Write ONE file per iteration. Use: `mkdir -p dir && cat << 'EOF' > dir/file\n[CONTENT]\nEOF`.\n" +
+        "5. MULTI-LINE PRECISION: You MUST use real newlines inside the file content. YAML is sensitive to spaces. Ensure correct indentation (2 spaces).\n" +
+        "6. NO ESCAPED NEWLINES: Do not use `\\n` literals inside the file content. Use actual line breaks.\n" +
+        "7. CONTINUITY: You are an autonomous builder. Write files one after another until the codebase is complete. DO NOT wait for the user between files.\n" +
+        "8. NO SYSTEM COMMANDS: Do not run `flutter create`. Focus on writing logic and config.\n" +
+        "9. SILENT INSTALLS: Install libraries silently if needed (e.g., `pip install ... && python ...`).\n" +
+        "10. VERIFICATION: After writing a file, immediately proceed to the next one without waiting.";
 
       const maxAgentHistory = 6;
       const historyToBatch = messages.slice(-maxAgentHistory);
