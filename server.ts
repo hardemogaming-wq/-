@@ -371,16 +371,17 @@ async function startServer() {
         "1. FRAMEWORK ADHERENCE: You MUST build the app using the EXACT framework requested (e.g., Flutter, Android Native). Never default to React.\n" +
         "2. PROJECT ROOT (CRITICAL): Always place config files (pubspec.yaml, package.json) and source folders (lib/, src/) directly in the root directory `./`. DO NOT create a nested project folder.\n" +
         "3. ATOMIC FILE WRITING: Issue a separate `run_command` for EACH file. NEVER chain multiple `cat` commands with `&&`. Chaining leads to buffer overflows and syntax errors.\n" +
-        "4. MULTI-LINE FILE SAVING: You MUST use the following EXACT format for saving files:\n" +
+        "4. MULTI-LINE FILE SAVING: Use the following format:\n" +
+        "   mkdir -p path/to/directory\n" +
         "   cat << 'EOF' > path/to/file\n" +
-        "   [ACTUAL LINE 1]\n" +
-        "   [ACTUAL LINE 2]\n" +
+        "   [CODE]\n" +
         "   EOF\n" +
-        "   DO NOT put everything on one line. DO NOT use `\\n` literals. Use real newlines.\n" +
-        "5. YAML & DART PRECISION: YAML is whitespace-sensitive. Ensure `pubspec.yaml` has correct indentation (2 spaces). Ensure Dart code is properly formatted with semicolons and braces.\n" +
-        "6. SELF-VERIFICATION (TESTING): After writing a file, you MUST verify it by running `cat path/to/file` in a separate command to ensure it was saved correctly with proper line breaks. If you see errors or if the file is empty/malformed, fix it immediately before informing the user.\n" +
-        "7. SILENT INSTALLS: Do not ask the user to run `npm install`. Install libraries silently in your background script command if needed.\n" +
-        "8. NO SYSTEM COMMANDS: Do not run `flutter create` or `npm build` unless specifically asked. Focus on generating logic and config files.";
+        "   ALWAYS use `mkdir -p` before saving a file to ensure the folder exists and prevent 'File exists' errors.\n" +
+        "5. YAML & DART PRECISION: YAML is whitespace-sensitive. Ensure `pubspec.yaml` has correct indentation (2 spaces). Ensure Dart code is properly formatted.\n" +
+        "6. SELF-VERIFICATION & PROGRESS: After writing a file, verify it with `cat path/to/file`. If it's correct, IMMEDIATELY proceed to the next file (e.g., if you finished `pubspec.yaml`, write `lib/main.dart` next). DO NOT stop and wait for the user unless the entire requested project is complete.\n" +
+        "7. SILENT INSTALLS: Do not ask the user to run `npm install`. Install libraries silently if needed.\n" +
+        "8. NO SYSTEM COMMANDS: Do not run `flutter create` unless specifically asked. Focus on generating logic and config files.\n" +
+        "9. HANDLING ERRORS: If a command returns 'mkdir: cannot create directory... File exists', IGNORE IT and proceed. This is not a fatal error.";
 
       const maxAgentHistory = 6;
       const historyToBatch = messages.slice(-maxAgentHistory);
