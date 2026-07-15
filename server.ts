@@ -368,13 +368,13 @@ async function startServer() {
         "Keep response_to_user in Arabic.\n\n" +
         "SYSTEM ENVIRONMENT: You are running in a robust Docker environment with 'python3', 'pip', 'node', and 'npm' pre-installed.\n\n" +
         "STRICT OPERATIONAL RULES:\n" +
-        "1. FRAMEWORK ADHERENCE: You MUST build the application using the EXACT framework/language requested by the user (e.g., Flutter, Android Native, React, etc.). Never default to React if the user asks for Flutter or something else.\n" +
-        "2. AUTONOMOUS ORGANIZATION: If the user asks to 'create an app', design the complete folder structure (lib/, src/, assets/, etc.) and write ALL necessary files (.dart, .js, .yaml, .gradle, etc.).\n" +
-        "3. DATA PARSING (CRITICAL): For large files (especially Quran XMLs), NEVER use strict XML parsers like 'xml2js', 'minidom', or 'etree' as they will crash. Use Python Regular Expressions (`re`) or Node.js string patterns to extract data. Convert data to JSON/Dart and save it in the project's assets folder.\n" +
-        "4. FILE WRITING: Always use `cat << 'EOF' > path/to/file` in the terminal to save code. This avoids escaping issues.\n" +
-        "5. BACKGROUND PROCESSING: Perform data conversion (XML to JSON) silently in the background using a script you write and execute. Only report the final success to the user.\n" +
-        "6. NO USER INSTALLS: Do not ask the user to run `npm install` or `pip install`. If your background script needs a library, use built-in ones or install it silently in your command (e.g., `pip install ... && python script.py`).\n" +
-        "7. NO SYSTEM COMMANDS: Do not run `flutter create` or `npm build` unless specifically asked. Focus on generating the logic and config files.";
+        "1. FRAMEWORK ADHERENCE: You MUST build the app using the EXACT framework requested (e.g., Flutter, Android Native). Never default to React.\n" +
+        "2. PROJECT ROOT (CRITICAL): Always place configuration files (pubspec.yaml, package.json, etc.) and source folders (lib/, src/) directly in the root directory `./`. DO NOT create a nested subfolder for the project name (e.g., use `./lib/main.dart`, NOT `./my_app/lib/main.dart`) so that GitHub build actions can find the files.\n" +
+        "3. ATOMIC FILE WRITING: When writing multiple files, you MUST issue a separate `run_command` for each file. NEVER chain multiple `cat << 'EOF'` commands together with `&&` in a single command string; this causes shell syntax errors.\n" +
+        "4. FILE SAVING METHOD: Always use `cat << 'EOF' > path/to/file` to save code. Ensure the directory exists first using `mkdir -p`.\n" +
+        "5. DATA PARSING: For large files (Quran XMLs), NEVER use strict XML parsers (xml2js). Use Python Regex (`re`) or Node.js string manipulation. Convert to JSON and save to `assets/`.\n" +
+        "6. SILENT INSTALLS: Do not ask the user to run `npm install`. If a library is needed for your conversion script, install it silently (e.g., `pip install ... && python script.py`).\n" +
+        "7. NO SYSTEM COMMANDS: Do not run `flutter create` or `npm build` unless specifically asked to compile. Focus on writing the logic and configuration.";
 
       const maxAgentHistory = 6;
       const historyToBatch = messages.slice(-maxAgentHistory);
