@@ -6,6 +6,7 @@ import { exec } from "child_process";
 import { promisify } from "util";
 import multer from "multer";
 import fs from "fs";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const execPromise = promisify(exec);
 
@@ -62,6 +63,8 @@ function robustParseJSON(text: string): any {
 }
 
 dotenv.config();
+
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
 // Ensure uploads directory exists
 const uploadDir = path.join(process.cwd(), "uploads");
@@ -361,8 +364,7 @@ async function startServer() {
         return res.status(400).json({ error: "Messages array is required." });
       }
 
-      const openrouterKey = process.env.OPENROUTER_API_KEY;
-      const hfToken = process.env.HUGGINGFACE_TOKEN || process.env.HF_TOKEN;
+      const geminiKey = process.env.GEMINI_API_KEY;
       const agentSystemPrompt = `You are Aura-AI in Agent Mode, an expert software architect created by 'يوسف محمد عبد الفتاح'.
 Your goal is to scaffold COMPLETE project structures. Respond in Arabic.
 
@@ -376,27 +378,35 @@ STRICT OPERATIONAL RULES:
 
 ENVIRONMENT: Linux shell for file operations (mkdir, cat, echo).`;
 
-      const maxAgentHistory = 20;
-      const historyToBatch = messages.slice(-maxAgentHistory);
-
       // Set up SSE
       res.setHeader("Content-Type", "text/event-stream");
       res.setHeader("Cache-Control", "no-cache");
       res.setHeader("Connection", "keep-alive");
 
-      if (!openrouterKey && !hfToken) {
-        res.write(`data: ${JSON.stringify({ error: "مفتاح OPENROUTER_API_KEY أو HUGGINGFACE_TOKEN غير موجود. الرجاء إضافته في إعدادات AI Studio (Secrets)." })}\n\n`);
+      if (!geminiKey) {
+        res.write(`data: ${JSON.stringify({ error: "مفتاح GEMINI_API_KEY غير موجود. الرجاء إضافته في إعدادات AI Studio (Secrets)." })}\n\n`);
         res.write("data: [DONE]\n\n");
         return res.end();
       }
 
-      const apiUrl = openrouterKey 
-        ? "https://openrouter.ai/api/v1/chat/completions"
-        : "https://router.huggingface.co/v1/chat/completions";
+      const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
 
-      const model = openrouterKey ? "poolside/laguna-m.1:free" : "Qwen/Qwen3-Coder-30B-A3B-Instruct";
+      let currentHistory: any[] = messages.slice(-20).map((m: any) => ({
+        role: m.role === "assistant" ? "model" : "user",
+        parts: [{ text: m.content }]
+      }));
 
-      let currentHistory = sanitizeMessages(historyToBatch, agentSystemPrompt);
+      // Ensure the first message is user if we have history, otherwise Gemini chat fails
+      if (currentHistory.length > 0 && currentHistory[0].role === "model") {
+        currentHistory.shift();
+      }
+
+      const chat = model.startChat({
+        history: currentHistory,
+        generationConfig: {
+          maxOutputTokens: 8192,
+        }
+      });
 
       let iterations = 0;
       const MAX_ITERATIONS = 100;
@@ -406,42 +416,10 @@ ENVIRONMENT: Linux shell for file operations (mkdir, cat, echo).`;
         console.log(`[Agent-Loop] Iteration ${iterations}`);
 
         try {
-          const headers: any = {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${openrouterKey || hfToken}`,
-          };
-
-          if (openrouterKey) {
-            headers["HTTP-Referer"] = process.env.APP_URL || "https://ai.studio/build";
-            headers["X-Title"] = "Aura-AI Builder";
-          }
-
-          const response = await fetch(apiUrl, {
-            method: "POST",
-            headers: headers,
-            body: JSON.stringify({
-              model: model,
-              messages: currentHistory,
-              stream: false, 
-              max_tokens: 8192,
-            }),
-          });
-
-          if (!response.ok) {
-            const errorText = await response.text();
-            let errorMessage = errorText;
-            try {
-              const errorJson = JSON.parse(errorText);
-              errorMessage = errorJson.error?.message || errorJson.error || errorText;
-            } catch (e) { /* ignore */ }
-            throw new Error(`HF Error: ${response.status} - ${errorMessage}`);
-          }
-
-          const data = await response.json();
-          const content = data.choices?.[0]?.message?.content;
+          const result = await chat.sendMessage([{ text: agentSystemPrompt + "\n\nProceed with the next step." }]);
+          const content = result.response.text();
 
           if (!content) {
-            console.error("[Agent] Empty response data:", data);
             throw new Error("The model returned an empty response.");
           }
 
@@ -451,7 +429,6 @@ ENVIRONMENT: Linux shell for file operations (mkdir, cat, echo).`;
             parsed = robustParseJSON(content);
           } catch (parseErr) {
             console.warn("[Agent] Malformed JSON from model, falling back to treating as plain text response:", content);
-            // Fallback gracefully so the model's textual response is still returned to the user
             parsed = {
               thought: "Model output was not in JSON format. Displaying raw text.",
               tool: "none",
@@ -469,7 +446,7 @@ ENVIRONMENT: Linux shell for file operations (mkdir, cat, echo).`;
             try {
               const { stdout, stderr } = await execPromise(parsed.command, { 
                 timeout: 30000,
-                maxBuffer: 1024 * 1024 * 10 // 10MB buffer
+                maxBuffer: 1024 * 1024 * 10 
               });
               cmdOutput = stdout + (stderr ? `\n--- STDERR ---\n${stderr}` : "");
               if (!cmdOutput) cmdOutput = "(Command executed successfully with no output)";
@@ -479,15 +456,16 @@ ENVIRONMENT: Linux shell for file operations (mkdir, cat, echo).`;
             }
 
             if (cmdOutput.length > 2500) {
-              cmdOutput = cmdOutput.substring(0, 2500) + "\n\n... [SYSTEM WARNING: OUTPUT TRUNCATED]. The file is too large to display. Please write a script to process this data in the background and save it to a file, rather than printing it to the terminal.";
+              cmdOutput = cmdOutput.substring(0, 2500) + "\n\n... [SYSTEM WARNING: OUTPUT TRUNCATED].";
             }
 
             console.log(`[Agent] Output: ${cmdOutput.substring(0, 100)}...`);
             res.write(`data: ${JSON.stringify({ type: "terminal_output", output: cmdOutput })}\n\n`);
 
-            // Add to history and continue loop
-            currentHistory.push({ role: "assistant", content: JSON.stringify(parsed) });
-            currentHistory.push({ role: "user", content: `Command Output:\n${cmdOutput}` });
+            // In Gemini chat, we just send the next message in the same chat session
+            // The history is maintained automatically by the `chat` object
+            // We need to feed back the command output to the model
+            await chat.sendMessage([{ text: `Command Output:\n${cmdOutput}` }]);
           } else {
             // Tool is "none", task finished
             break;
@@ -504,7 +482,6 @@ ENVIRONMENT: Linux shell for file operations (mkdir, cat, echo).`;
 
     } catch (error: any) {
       console.error("Agent API error:", error);
-      // Ensure we send errors via SSE since headers are likely already set
       res.write(`data: ${JSON.stringify({ error: error.message || "Internal server error" })}\n\n`);
       res.write("data: [DONE]\n\n");
       res.end();
