@@ -1112,7 +1112,7 @@ export default function App() {
               isLoading={isLoading}
             />
             <p className="mt-2 text-center text-[10px] text-neutral-600 font-mono select-none">
-              🔒 Connected securely to Aura-AI Engine • All data cached locally.
+              🔒 Connected securely to Gemini 3.1 Flash • All data cached locally.
             </p>
           </div>
         </footer>

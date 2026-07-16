@@ -254,69 +254,47 @@ async function startServer() {
     }
   });
 
-  // API Route for Chat completions using Hugging Face Serverless Inference API (Qwen/Qwen2.5-Coder-32B-Instruct)
+  // API Route for Chat completions using Gemini 3.1 Flash
   apiRouter.post("/chat", async (req, res) => {
     try {
-      const { messages, stream = true, deepThinking = false, webSearch = false, deepSearch = false } = req.body;
+      const { messages, stream = true } = req.body;
       if (!messages || !Array.isArray(messages)) {
         return res.status(400).json({ error: "Messages array is required." });
       }
 
-      const openrouterKey = process.env.OPENROUTER_API_KEY;
-      const hfToken = process.env.HUGGINGFACE_TOKEN || process.env.HF_TOKEN;
-      const systemContent = "You are Aura-AI, a sleek, futuristic AI assistant specialized in software engineering. Created by 'يوسف محمد عبد الفتاح'. Respond in the same language as the user's query. Use clean formatting. Files must be in Markdown code blocks with 'File: path' header.";
-
-      if (!openrouterKey && !hfToken) {
+      const geminiKey = process.env.GEMINI_API_KEY;
+      if (!geminiKey) {
         return res.status(400).json({ 
-          error: "مفتاح OPENROUTER_API_KEY أو HUGGINGFACE_TOKEN غير موجود. الرجاء إضافته في إعدادات AI Studio (Secrets)." 
+          error: "مفتاح GEMINI_API_KEY غير موجود. الرجاء إضافته في إعدادات AI Studio (Secrets)." 
         });
       }
+
+      const modelName = "gemini-3.1-flash";
+      console.log(`[Aura-AI] Using Gemini (Model: ${modelName}, Stream: ${stream})...`);
+      const model = genAI.getGenerativeModel({ model: modelName });
       
-      const apiUrl = openrouterKey 
-        ? "https://openrouter.ai/api/v1/chat/completions"
-        : "https://router.huggingface.co/v1/chat/completions";
+      const systemInstruction = "You are Aura-AI, a sleek, futuristic AI assistant specialized in software engineering. Created by 'يوسف محمد عبد الفتاح'. Respond in the same language as the user's query. Use clean formatting. Files must be in Markdown code blocks with 'File: path' header.";
 
-      const maxHistory = 10;
-      const historyToBatch = messages.slice(-maxHistory);
+      let currentHistory: any[] = messages.slice(-20).map((m: any) => ({
+        role: m.role === "assistant" ? "model" : "user",
+        parts: [{ text: m.content }]
+      }));
 
-      const formattedMessages = sanitizeMessages(historyToBatch, systemContent);
-
-      const model = openrouterKey ? "poolside/laguna-m.1:free" : "Qwen/Qwen3-Coder-30B-A3B-Instruct";
-
-      console.log(`[Aura-AI] Forwarding to ${openrouterKey ? 'OpenRouter' : 'Router'} (Model: ${model}, Stream: ${stream})...`);
-      
-      const headers: any = {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${openrouterKey || hfToken}`,
-      };
-
-      if (openrouterKey) {
-        headers["HTTP-Referer"] = process.env.APP_URL || "https://ai.studio/build";
-        headers["X-Title"] = "Aura-AI Builder";
+      // Ensure the first message is user
+      if (currentHistory.length > 0 && currentHistory[0].role === "model") {
+        currentHistory.shift();
       }
 
-      const response = await fetch(apiUrl, {
-        method: "POST",
-        headers: headers,
-        body: JSON.stringify({
-          model: model,
-          messages: formattedMessages,
-          stream: stream,
-          max_tokens: 8192,
-        }),
+      if (currentHistory.length === 0) {
+        return res.status(400).json({ error: "No messages to process." });
+      }
+
+      const lastMessage = currentHistory.pop().parts[0].text;
+
+      const chat = model.startChat({
+        history: currentHistory,
+        systemInstruction: systemInstruction,
       });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        let errorMessage = errorText;
-        try {
-          const errorJson = JSON.parse(errorText);
-          errorMessage = errorJson.error?.message || errorJson.error || errorText;
-        } catch (e) { /* ignore */ }
-        
-        console.error(`[Aura-AI] API Error (${openrouterKey ? 'OpenRouter' : 'HF'}):`, response.status, errorMessage);
-        throw new Error(`${openrouterKey ? 'OpenRouter' : 'HF'} Error: ${response.status} - ${errorMessage}`);
-      }
 
       if (stream) {
         res.setHeader("Content-Type", "text/event-stream");
@@ -324,38 +302,33 @@ async function startServer() {
         res.setHeader("Connection", "keep-alive");
 
         try {
-          if (!response.body) {
-            throw new Error("No response body received from Hugging Face API.");
-          }
-
-          // Handle streaming response robustly for any environment / runtime
-          if (typeof (response.body as any).getReader === "function") {
-            const reader = (response.body as any).getReader();
-            const decoder = new TextDecoder("utf-8");
-            while (true) {
-              const { done, value } = await reader.read();
-              if (done) break;
-              res.write(decoder.decode(value, { stream: true }));
-            }
-          } else {
-            // Fallback if response.body acts as a node stream
-            for await (const chunk of response.body as any) {
-              res.write(chunk);
+          const result = await chat.sendMessageStream(lastMessage);
+          for await (const chunk of result.stream) {
+            const chunkText = chunk.text();
+            if (chunkText) {
+              res.write(`data: ${JSON.stringify({ choices: [{ delta: { content: chunkText } }] })}\n\n`);
             }
           }
+          res.write("data: [DONE]\n\n");
           res.end();
         } catch (streamError: any) {
-          console.error("[Aura-AI] Streaming error:", streamError);
-          res.write(`data: ${JSON.stringify({ choices: [{ delta: { content: `\n\n⚠️ **Streaming Error**: ${streamError.message}` } }] })}\n\n`);
+          console.error("[Aura-AI] Gemini Streaming error:", streamError);
+          res.write(`data: ${JSON.stringify({ error: streamError.message })}\n\n`);
           res.write("data: [DONE]\n\n");
           res.end();
         }
       } else {
-        const data = await response.json();
-        res.json(data);
+        const result = await chat.sendMessage(lastMessage);
+        res.json({
+          choices: [{
+            message: {
+              content: result.response.text()
+            }
+          }]
+        });
       }
     } catch (error: any) {
-      console.error("General API generation error:", error);
+      console.error("[Aura-AI] General API error:", error);
       res.status(500).json({ error: error.message || "Internal server error" });
     }
   });
