@@ -64,7 +64,7 @@ function robustParseJSON(text: string): any {
 
 dotenv.config();
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "AIzaSyC9Z71C1q6Cu6s1T3-0F1JOnpbITXmyt8E");
 
 // Ensure uploads directory exists
 const uploadDir = path.join(process.cwd(), "uploads");
@@ -389,7 +389,7 @@ ENVIRONMENT: Linux shell for file operations (mkdir, cat, echo).`;
         return res.end();
       }
 
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
+      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
       let currentHistory: any[] = messages.slice(-20).map((m: any) => ({
         role: m.role === "assistant" ? "model" : "user",

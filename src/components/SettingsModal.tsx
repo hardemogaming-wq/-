@@ -32,7 +32,7 @@ export default function SettingsModal({
       temperature: 0.7,
       maxTokens: 2048,
       apiEndpoint: "https://hardemo-aura-ai.hf.space/v1",
-      modelName: "Aura-AI Engine",
+      modelName: "Gemini 2.5 Flash",
     });
   };
 
