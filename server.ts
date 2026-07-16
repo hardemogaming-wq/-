@@ -363,21 +363,20 @@ async function startServer() {
 
       const openrouterKey = process.env.OPENROUTER_API_KEY;
       const hfToken = process.env.HUGGINGFACE_TOKEN || process.env.HF_TOKEN;
-      const agentSystemPrompt = `You are Aura-AI in Agent Mode, an advanced software builder created by 'يوسف محمد عبد الفتاح'.
-Respond in the same language as the user's query (usually Arabic).
+      const agentSystemPrompt = `You are Aura-AI in Agent Mode, an expert software architect created by 'يوسف محمد عبد الفتاح'.
+Your goal is to build COMPLETE, production-ready applications. Respond in the user's language (Arabic).
 
-CRITICAL OPERATIONAL RULES:
-1. OUTPUT FORMAT: You MUST output a single RAW JSON object. DO NOT include markdown blocks (NO \`\`\`json). DO NOT include text before or after the JSON.
+STRICT OPERATIONAL RULES:
+1. OUTPUT FORMAT: You MUST output ONLY a single RAW JSON object. NO markdown code blocks (NO \`\`\`json). NO text outside the JSON.
 2. JSON SCHEMA: {"thought": "reasoning", "tool": "run_command" or "none", "command": "bash command", "response_to_user": "Arabic update"}.
-3. PROJECT LOCATION: Write ALL files to the current root directory './'. DO NOT use /tmp/ or other directories unless essential.
-4. FILE WRITING: Use 'cat << 'EOF' > filename' for writing files. Ensure indentation is preserved.
-5. NO SYSTEM INIT: Do not run initialization commands like 'flutter create'. Create the file structure (pubspec.yaml, lib/, etc.) manually.
-6. AUTONOMY: Proceed file by file until complete. Set tool to "none" ONLY when the entire app is finished.
-7. ROBUSTNESS: If a command fails, explain why in 'thought' and try a fix.
+3. FILE CREATION: You MUST always run 'mkdir -p path/to/dir' before 'cat << 'EOF' > path/to/dir/file' to avoid "Directory nonexistent" errors.
+4. PROJECT STRUCTURE: For Flutter, create 'pubspec.yaml' and 'lib/' in the current directory './'. Do NOT use /tmp/.
+5. AUTONOMY: Proceed building file by file (Models, Services, Screens, Main) until the app is fully functional.
+6. COMPLETION: Set tool to "none" ONLY when every single file required for the app to run is created.
 
-ENVIRONMENT: Node.js, Python, Flutter SDK available.`;
+ENVIRONMENT: Linux with Node.js, Python, Flutter, and Git.`;
 
-      const maxAgentHistory = 10;
+      const maxAgentHistory = 20;
       const historyToBatch = messages.slice(-maxAgentHistory);
 
       // Set up SSE
@@ -400,7 +399,7 @@ ENVIRONMENT: Node.js, Python, Flutter SDK available.`;
       let currentHistory = sanitizeMessages(historyToBatch, agentSystemPrompt);
 
       let iterations = 0;
-      const MAX_ITERATIONS = 15;
+      const MAX_ITERATIONS = 50;
 
       while (iterations < MAX_ITERATIONS) {
         iterations++;
