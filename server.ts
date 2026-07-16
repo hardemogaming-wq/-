@@ -64,7 +64,8 @@ function robustParseJSON(text: string): any {
 
 dotenv.config();
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "AIzaSyC9Z71C1q6Cu6s1T3-0F1JOnpbITXmyt8E");
+const GEMINI_KEY = process.env.GEMINI_API_KEY || "AIzaSyC9Z71C1q6Cu6s1T3-0F1JOnpbITXmyt8E";
+const genAI = new GoogleGenerativeAI(GEMINI_KEY);
 
 // Ensure uploads directory exists
 const uploadDir = path.join(process.cwd(), "uploads");
@@ -364,7 +365,7 @@ async function startServer() {
         return res.status(400).json({ error: "Messages array is required." });
       }
 
-      const geminiKey = process.env.GEMINI_API_KEY;
+      const geminiKey = process.env.GEMINI_API_KEY || "AIzaSyC9Z71C1q6Cu6s1T3-0F1JOnpbITXmyt8E";
       const agentSystemPrompt = `You are Aura-AI in Agent Mode, an expert software architect created by 'يوسف محمد عبد الفتاح'.
 Your goal is to scaffold COMPLETE project structures. Respond in Arabic.
 
@@ -389,6 +390,7 @@ ENVIRONMENT: Linux shell for file operations (mkdir, cat, echo).`;
         return res.end();
       }
 
+      console.log(`[Agent] Initializing Gemini chat with model: gemini-2.5-flash`);
       const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
       let currentHistory: any[] = messages.slice(-20).map((m: any) => ({
