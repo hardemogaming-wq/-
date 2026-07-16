@@ -11,34 +11,54 @@ const execPromise = promisify(exec);
 
 function robustParseJSON(text: string): any {
   if (!text) throw new Error("Empty text");
-  
+
+  // 1. Try direct parse
   let cleaned = text.trim();
+  try { return JSON.parse(cleaned); } catch (e) {}
 
-  // 1. Extract from markdown if present
+  // 2. Try markdown extraction
   const codeBlockMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
-  if (codeBlockMatch) cleaned = codeBlockMatch[1].trim();
-
-  // 2. Locate boundaries
-  const firstBrace = cleaned.indexOf('{');
-  const lastBrace = cleaned.lastIndexOf('}');
-  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-    cleaned = cleaned.substring(firstBrace, lastBrace + 1);
+  if (codeBlockMatch) {
+    try { return JSON.parse(codeBlockMatch[1].trim()); } catch (e) {}
   }
 
-  // 3. Recursive parsing attempts
-  try {
-    return JSON.parse(cleaned);
-  } catch (e) {
-    // 4. Handle unescaped newlines inside quotes (common model error)
-    try {
-      const fixed = cleaned.replace(/"([^"]*)"/g, (m, p1) => {
-        return '"' + p1.replace(/\n/g, '\\n').replace(/\r/g, '\\r') + '"';
-      });
-      return JSON.parse(fixed);
-    } catch (e2) {
-      throw new Error("Could not parse JSON response from model.");
+  // 3. Balanced brace extraction
+  const firstBrace = text.indexOf('{');
+  if (firstBrace !== -1) {
+    let braceCount = 0;
+    let insideString = false;
+    let escape = false;
+    for (let i = firstBrace; i < text.length; i++) {
+      const char = text[i];
+      if (insideString) {
+        if (escape) escape = false;
+        else if (char === '\\') escape = true;
+        else if (char === '"') insideString = false;
+      } else {
+        if (char === '"') insideString = true;
+        else if (char === '{') braceCount++;
+        else if (char === '}') {
+          braceCount--;
+          if (braceCount === 0) {
+            const potentialJson = text.substring(firstBrace, i + 1);
+            try {
+              return JSON.parse(potentialJson);
+            } catch (e) {
+              // Final attempt: fix unescaped newlines in strings
+              try {
+                const fixed = potentialJson.replace(/"([^"]*)"/g, (m, p1) => {
+                  return '"' + p1.replace(/\n/g, '\\n').replace(/\r/g, '\\r') + '"';
+                });
+                return JSON.parse(fixed);
+              } catch (e2) {}
+            }
+          }
+        }
+      }
     }
   }
+
+  throw new Error("No valid JSON object found in model output.");
 }
 
 dotenv.config();
@@ -346,15 +366,16 @@ async function startServer() {
       const agentSystemPrompt = `You are Aura-AI in Agent Mode, an advanced software builder created by 'يوسف محمد عبد الفتاح'.
 Respond in the same language as the user's query (usually Arabic).
 
-STRICT OPERATIONAL RULES:
-1. OUTPUT FORMAT: You MUST output a single RAW JSON object. DO NOT include markdown blocks (NO \`\`\`json).
-2. JSON SCHEMA: {"thought": "your step-by-step reasoning", "tool": "run_command" or "none", "command": "bash command to execute", "response_to_user": "human-friendly update in Arabic"}.
-3. FILE WRITING: Use 'cat << EOF > path/to/file' for multi-line files. Ensure directories exist with 'mkdir -p'.
-4. AUTONOMY: You are building a full app. Proceed file by file. If you need to install something, use the command tool.
-5. NO FLUTTER CREATE: Do not run 'flutter create'. Manually create pubspec.yaml and lib/ folders.
-6. CONTINUITY: After finishing a step, immediately plan the next step. If you are finished, set tool to "none".
+CRITICAL OPERATIONAL RULES:
+1. OUTPUT FORMAT: You MUST output a single RAW JSON object. DO NOT include markdown blocks (NO \`\`\`json). DO NOT include text before or after the JSON.
+2. JSON SCHEMA: {"thought": "reasoning", "tool": "run_command" or "none", "command": "bash command", "response_to_user": "Arabic update"}.
+3. PROJECT LOCATION: Write ALL files to the current root directory './'. DO NOT use /tmp/ or other directories unless essential.
+4. FILE WRITING: Use 'cat << 'EOF' > filename' for writing files. Ensure indentation is preserved.
+5. NO SYSTEM INIT: Do not run initialization commands like 'flutter create'. Create the file structure (pubspec.yaml, lib/, etc.) manually.
+6. AUTONOMY: Proceed file by file until complete. Set tool to "none" ONLY when the entire app is finished.
+7. ROBUSTNESS: If a command fails, explain why in 'thought' and try a fix.
 
-ENVIRONMENT: Linux container with Node.js, Python, and Git.`;
+ENVIRONMENT: Node.js, Python, Flutter SDK available.`;
 
       const maxAgentHistory = 10;
       const historyToBatch = messages.slice(-maxAgentHistory);

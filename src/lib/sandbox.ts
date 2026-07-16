@@ -24,56 +24,66 @@ export interface SandboxFile {
 export function extractSandboxFiles(text: string): SandboxFile[] {
   const files: SandboxFile[] = [];
 
-  // 1. Regular expression to match:
-  // ```lang [FILE: path] or ```lang FILE: path
+  // 1. Regular expression for markdown blocks (standard logic)
   const blockHeaderRegex = /```(\w*)\s*(?:\[FILE:\s*([^\]\s]+)\]|FILE:\s*(\S+))?\s*[\r\n]+([\s\S]*?)```/gi;
   let match;
-
   while ((match = blockHeaderRegex.exec(text)) !== null) {
     const language = match[1] || "txt";
     let filePath = match[2] || match[3] || "";
     let blockContent = match[4];
-
-    // Check inside the block's first few lines for comment declarations
     if (!filePath) {
       const firstLines = blockContent.split("\n").slice(0, 5);
       for (const line of firstLines) {
         const commentMatch = line.match(/(?:\/\/|#|<!--|\/\*)\s*(?:FILE|File|file|Path|path|PATH):\s*([a-zA-Z0-9_\-\.\/]+)\s*(?:-->|\*\/)?/i);
-        if (commentMatch) {
-          filePath = commentMatch[1];
-          break;
-        }
+        if (commentMatch) { filePath = commentMatch[1]; break; }
       }
     }
-
     if (filePath) {
-      filePath = cleanFilePath(filePath);
-      // Keep only unique latest blocks of files (though aggregation handles this later)
+      files.push({ path: cleanFilePath(filePath), content: blockContent, language: language });
+    }
+  }
+
+  // 2. NEW: Regex for "cat << 'EOF' > path" commands (Agent Mode)
+  // This helps detect files even if they are NOT in markdown blocks but inside JSON commands
+  const catRegex = /cat\s+<<\s*['"]?EOF['"]?\s*>\s*([^\s\n\(\);&\|]+)[\s\n\\]+([\s\S]*?)EOF/gi;
+  while ((match = catRegex.exec(text)) !== null) {
+    const filePath = cleanFilePath(match[1].replace(/['"]/g, ""));
+    const content = match[2].trim().replace(/\\n/g, "\n").replace(/\\"/g, '"');
+    if (!files.some(f => f.path === filePath)) {
       files.push({
         path: filePath,
-        content: blockContent,
-        language: language,
+        content: content,
+        language: detectLanguage(filePath)
       });
     }
   }
 
-  // 2. Regular expression to match separate "File: path" followed by ```lang codeblock
+  // 3. Regex for "File: path" followed by ``` blocks
   const separateHeaderRegex = /(?:\*\*|__)?(?:File|FILE|Path|PATH|الملف):\s*([a-zA-Z0-9_\-\.\/]+)(?:\*\*|__)?\s*[\r\n]+```(\w*)\s*[\r\n]+([\s\S]*?)```/gi;
   while ((match = separateHeaderRegex.exec(text)) !== null) {
     const filePath = cleanFilePath(match[1]);
-    const language = match[2] || "txt";
-    const blockContent = match[3];
-
     if (!files.some((f) => f.path === filePath)) {
-      files.push({
-        path: filePath,
-        content: blockContent,
-        language: language,
-      });
+      files.push({ path: filePath, content: match[3], language: match[2] || "txt" });
     }
   }
 
   return files;
+}
+
+function detectLanguage(path: string): string {
+  const ext = path.split(".").pop()?.toLowerCase();
+  switch (ext) {
+    case "dart": return "dart";
+    case "yaml": return "yaml";
+    case "py": return "python";
+    case "js": return "javascript";
+    case "ts": return "typescript";
+    case "tsx": return "tsx";
+    case "html": return "html";
+    case "css": return "css";
+    case "json": return "json";
+    default: return "txt";
+  }
 }
 
 function cleanFilePath(path: string): string {
@@ -89,9 +99,20 @@ export function aggregateChatFiles(messages: { role: string; content: string }[]
 
   messages.forEach((msg) => {
     if (msg.role === "assistant") {
-      const msgFiles = extractSandboxFiles(msg.content);
+      // First, check if content is a JSON object from Agent Mode
+      let contentToExtract = msg.content;
+      try {
+        const firstBrace = msg.content.indexOf('{');
+        const lastBrace = msg.content.lastIndexOf('}');
+        if (firstBrace !== -1 && lastBrace !== -1) {
+          const potentialJson = msg.content.substring(firstBrace, lastBrace + 1);
+          const parsed = JSON.parse(potentialJson);
+          if (parsed.command) contentToExtract += "\n" + parsed.command;
+        }
+      } catch (e) {}
+
+      const msgFiles = extractSandboxFiles(contentToExtract);
       msgFiles.forEach((f) => {
-        // Overwrite or create with the latest content
         fileMap[f.path] = f;
       });
     }
