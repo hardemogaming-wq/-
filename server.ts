@@ -6,7 +6,7 @@ import { exec } from "child_process";
 import { promisify } from "util";
 import multer from "multer";
 import fs from "fs";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+// Removed GoogleGenerativeAI import as we switched to Mistral AI (Codestral)
 
 const execPromise = promisify(exec);
 
@@ -64,13 +64,12 @@ function robustParseJSON(text: string): any {
 
 dotenv.config();
 
-const GEMINI_KEY = process.env.GEMINI_API_KEY;
 const MISTRAL_KEY = process.env.MISTRAL_API_KEY;
 
 if (!MISTRAL_KEY) {
   console.error("MISTRAL_API_KEY is not defined in environment variables.");
 }
-const genAI = new GoogleGenerativeAI(GEMINI_KEY || "");
+// Removed genAI initialization as we switched to Mistral AI (Codestral)
 
 // Ensure uploads directory exists
 const uploadDir = path.join(process.cwd(), "uploads");
@@ -361,8 +360,8 @@ ENVIRONMENT: Linux shell for file operations (mkdir, cat, echo).`;
       res.setHeader("Cache-Control", "no-cache");
       res.setHeader("Connection", "keep-alive");
 
-      if (!geminiKey) {
-        res.write(`data: ${JSON.stringify({ error: "مفتاح GEMINI_API_KEY غير موجود. الرجاء إضافته في إعدادات AI Studio (Secrets)." })}\n\n`);
+      if (!mistralKey) {
+        res.write(`data: ${JSON.stringify({ error: "مفتاح MISTRAL_API_KEY غير موجود. الرجاء إضافته في إعدادات AI Studio (Secrets)." })}\n\n`);
         res.write("data: [DONE]\n\n");
         return res.end();
       }
