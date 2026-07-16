@@ -177,8 +177,8 @@ export default function App() {
     if (activeChat) {
       const files = aggregateChatFiles(activeChat.messages);
       setSandboxFiles(files);
-      // Auto open workspace panel only on desktop screens (width >= 1024) to avoid blocking the conversation view on mobile devices
-      if (files.length > 0 && !isSandboxOpen && window.innerWidth >= 1024) {
+      // Auto open workspace panel when files are detected
+      if (files.length > 0 && !isSandboxOpen) {
         setIsSandboxOpen(true);
       }
     } else {

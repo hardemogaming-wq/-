@@ -10,69 +10,35 @@ import fs from "fs";
 const execPromise = promisify(exec);
 
 function robustParseJSON(text: string): any {
-  if (!text) {
-    throw new Error("Empty text");
+  if (!text) throw new Error("Empty text");
+  
+  let cleaned = text.trim();
+
+  // 1. Extract from markdown if present
+  const codeBlockMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  if (codeBlockMatch) cleaned = codeBlockMatch[1].trim();
+
+  // 2. Locate boundaries
+  const firstBrace = cleaned.indexOf('{');
+  const lastBrace = cleaned.lastIndexOf('}');
+  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+    cleaned = cleaned.substring(firstBrace, lastBrace + 1);
   }
 
-  // 1. Try a direct standard JSON parse
+  // 3. Recursive parsing attempts
   try {
-    return JSON.parse(text.trim());
-  } catch (e) {}
-
-  // 2. Try to extract JSON from a ```json ... ``` code block
-  const codeBlockMatch = text.match(/```json\s*([\s\S]*?)\s*```/i);
-  if (codeBlockMatch) {
+    return JSON.parse(cleaned);
+  } catch (e) {
+    // 4. Handle unescaped newlines inside quotes (common model error)
     try {
-      return JSON.parse(codeBlockMatch[1].trim());
-    } catch (e) {}
-  }
-
-  // 3. Find the first '{' and trace to find the matching '}'
-  // This avoids greedy matching that captures extra curly braces in following code blocks.
-  const firstBrace = text.indexOf('{');
-  if (firstBrace !== -1) {
-    let braceCount = 0;
-    let insideString = false;
-    let escape = false;
-    for (let i = firstBrace; i < text.length; i++) {
-      const char = text[i];
-      if (insideString) {
-        if (escape) {
-          escape = false;
-        } else if (char === '\\') {
-          escape = true;
-        } else if (char === '"') {
-          insideString = false;
-        }
-      } else {
-        if (char === '"') {
-          insideString = true;
-        } else if (char === '{') {
-          braceCount++;
-        } else if (char === '}') {
-          braceCount--;
-          if (braceCount === 0) {
-            const potentialJson = text.substring(firstBrace, i + 1);
-            try {
-              return JSON.parse(potentialJson);
-            } catch (e) {
-              // Ignore and let it fallback/try other methods
-            }
-          }
-        }
-      }
+      const fixed = cleaned.replace(/"([^"]*)"/g, (m, p1) => {
+        return '"' + p1.replace(/\n/g, '\\n').replace(/\r/g, '\\r') + '"';
+      });
+      return JSON.parse(fixed);
+    } catch (e2) {
+      throw new Error("Could not parse JSON response from model.");
     }
   }
-
-  // 4. Try standard greedy match as a final fallback
-  const greedyMatch = text.match(/\{[\s\S]*\}/);
-  if (greedyMatch) {
-    try {
-      return JSON.parse(greedyMatch[0]);
-    } catch (e) {}
-  }
-
-  throw new Error("No valid JSON object found in model output.");
 }
 
 dotenv.config();
@@ -377,23 +343,20 @@ async function startServer() {
 
       const openrouterKey = process.env.OPENROUTER_API_KEY;
       const hfToken = process.env.HUGGINGFACE_TOKEN || process.env.HF_TOKEN;
-      const agentSystemPrompt = "You are Aura-AI in Agent Mode, created by 'يوسف محمد عبد الفتاح'. Respond in the same language as the user's query. " +
-        "Solve tasks using JSON: {\"thought\":\"...\",\"tool\":\"run_command\"/\"none\",\"command\":\"...\",\"response_to_user\":\"...\"}. " +
-        "Keep response_to_user in Arabic.\n\n" +
-        "SYSTEM ENVIRONMENT: You are running in a robust Docker environment with 'python3', 'pip', 'node', and 'npm' pre-installed.\n\n" +
-        "STRICT OPERATIONAL RULES:\n" +
-        "1. JSON-ONLY RESPONSE (MANDATORY): You MUST output ONLY a raw JSON object. DO NOT use markdown code blocks (NO ```json). DO NOT include text outside the JSON. If you include text outside, the system will CRASH.\n" +
-        "2. FRAMEWORK ADHERENCE: Build the app using the EXACT framework requested (e.g., Flutter). Never default to React.\n" +
-        "3. PROJECT ROOT: Place all files (pubspec.yaml, lib/, etc.) in the root `./`.\n" +
-        "4. ATOMIC FILE WRITING: Write ONE file per iteration. Use: `mkdir -p dir && cat << 'EOF' > dir/file\n[CONTENT]\nEOF`.\n" +
-        "5. MULTI-LINE PRECISION: You MUST use real newlines inside the file content. YAML is sensitive to spaces. Ensure correct indentation (2 spaces).\n" +
-        "6. NO ESCAPED NEWLINES: Do not use `\\n` literals inside the file content. Use actual line breaks.\n" +
-        "7. CONTINUITY: You are an autonomous builder. Write files one after another until the codebase is complete. DO NOT wait for the user between files.\n" +
-        "8. NO SYSTEM COMMANDS: Do not run `flutter create`. Focus on writing logic and config.\n" +
-        "9. SILENT INSTALLS: Install libraries silently if needed (e.g., `pip install ... && python ...`).\n" +
-        "10. VERIFICATION: After writing a file, immediately proceed to the next one without waiting.";
+      const agentSystemPrompt = `You are Aura-AI in Agent Mode, an advanced software builder created by 'يوسف محمد عبد الفتاح'.
+Respond in the same language as the user's query (usually Arabic).
 
-      const maxAgentHistory = 6;
+STRICT OPERATIONAL RULES:
+1. OUTPUT FORMAT: You MUST output a single RAW JSON object. DO NOT include markdown blocks (NO \`\`\`json).
+2. JSON SCHEMA: {"thought": "your step-by-step reasoning", "tool": "run_command" or "none", "command": "bash command to execute", "response_to_user": "human-friendly update in Arabic"}.
+3. FILE WRITING: Use 'cat << EOF > path/to/file' for multi-line files. Ensure directories exist with 'mkdir -p'.
+4. AUTONOMY: You are building a full app. Proceed file by file. If you need to install something, use the command tool.
+5. NO FLUTTER CREATE: Do not run 'flutter create'. Manually create pubspec.yaml and lib/ folders.
+6. CONTINUITY: After finishing a step, immediately plan the next step. If you are finished, set tool to "none".
+
+ENVIRONMENT: Linux container with Node.js, Python, and Git.`;
+
+      const maxAgentHistory = 10;
       const historyToBatch = messages.slice(-maxAgentHistory);
 
       // Set up SSE
@@ -416,7 +379,7 @@ async function startServer() {
       let currentHistory = sanitizeMessages(historyToBatch, agentSystemPrompt);
 
       let iterations = 0;
-      const MAX_ITERATIONS = 5;
+      const MAX_ITERATIONS = 15;
 
       while (iterations < MAX_ITERATIONS) {
         iterations++;
