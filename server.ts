@@ -396,8 +396,8 @@ ENVIRONMENT: Linux shell for file operations (mkdir, cat, echo).`;
         return res.end();
       }
 
-      console.log(`[Agent] Initializing Gemini chat with model: gemini-3.5-flash`);
-      const model = genAI.getGenerativeModel({ model: "gemini-3.5-flash" });
+      console.log(`[Agent] Initializing Gemini chat with model: gemini-3.1-flash`);
+      const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash" });
 
       let currentHistory: any[] = messages.slice(-20).map((m: any) => ({
         role: m.role === "assistant" ? "model" : "user",
