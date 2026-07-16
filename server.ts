@@ -65,8 +65,10 @@ function robustParseJSON(text: string): any {
 dotenv.config();
 
 const GEMINI_KEY = process.env.GEMINI_API_KEY;
-if (!GEMINI_KEY) {
-  console.error("GEMINI_API_KEY is not defined in environment variables.");
+const MISTRAL_KEY = process.env.MISTRAL_API_KEY;
+
+if (!MISTRAL_KEY) {
+  console.error("MISTRAL_API_KEY is not defined in environment variables.");
 }
 const genAI = new GoogleGenerativeAI(GEMINI_KEY || "");
 
@@ -254,7 +256,7 @@ async function startServer() {
     }
   });
 
-  // API Route for Chat completions using Gemini 3.1 Flash
+  // API Route for Chat completions using Mistral AI (Codestral)
   apiRouter.post("/chat", async (req, res) => {
     try {
       const { messages, stream = true } = req.body;
@@ -262,70 +264,66 @@ async function startServer() {
         return res.status(400).json({ error: "Messages array is required." });
       }
 
-      const geminiKey = process.env.GEMINI_API_KEY;
-      if (!geminiKey) {
+      const mistralKey = process.env.MISTRAL_API_KEY;
+      if (!mistralKey) {
         return res.status(400).json({ 
-          error: "مفتاح GEMINI_API_KEY غير موجود. الرجاء إضافته في إعدادات AI Studio (Secrets)." 
+          error: "مفتاح MISTRAL_API_KEY غير موجود. الرجاء إضافته في إعدادات AI Studio (Secrets)." 
         });
       }
 
-      const modelName = "gemini-3.1-flash";
-      console.log(`[Aura-AI] Using Gemini (Model: ${modelName}, Stream: ${stream})...`);
-      const model = genAI.getGenerativeModel({ model: modelName });
+      const modelName = "codestral-latest";
+      console.log(`[Aura-AI] Using Mistral (Model: ${modelName}, Stream: ${stream})...`);
       
-      const systemInstruction = "You are Aura-AI, a sleek, futuristic AI assistant specialized in software engineering. Created by 'يوسف محمد عبد الفتاح'. Respond in the same language as the user's query. Use clean formatting. Files must be in Markdown code blocks with 'File: path' header.";
+      const systemContent = "You are Aura-AI, a sleek, futuristic AI assistant specialized in software engineering. Created by 'يوسف محمد عبد الفتاح'. Respond in the same language as the user's query. Use clean formatting. Files must be in Markdown code blocks with 'File: path' header.";
 
-      let currentHistory: any[] = messages.slice(-20).map((m: any) => ({
-        role: m.role === "assistant" ? "model" : "user",
-        parts: [{ text: m.content }]
-      }));
+      const formattedMessages = [
+        { role: "system", content: systemContent },
+        ...messages.slice(-20).map(m => ({
+          role: m.role,
+          content: m.content
+        }))
+      ];
 
-      // Ensure the first message is user
-      if (currentHistory.length > 0 && currentHistory[0].role === "model") {
-        currentHistory.shift();
-      }
-
-      if (currentHistory.length === 0) {
-        return res.status(400).json({ error: "No messages to process." });
-      }
-
-      const lastMessage = currentHistory.pop().parts[0].text;
-
-      const chat = model.startChat({
-        history: currentHistory,
-        systemInstruction: systemInstruction,
+      const response = await fetch("https://api.mistral.ai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${mistralKey}`,
+        },
+        body: JSON.stringify({
+          model: modelName,
+          messages: formattedMessages,
+          stream: stream,
+        }),
       });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`Mistral API Error: ${errorData.message || response.statusText}`);
+      }
 
       if (stream) {
         res.setHeader("Content-Type", "text/event-stream");
         res.setHeader("Cache-Control", "no-cache");
         res.setHeader("Connection", "keep-alive");
 
-        try {
-          const result = await chat.sendMessageStream(lastMessage);
-          for await (const chunk of result.stream) {
-            const chunkText = chunk.text();
-            if (chunkText) {
-              res.write(`data: ${JSON.stringify({ choices: [{ delta: { content: chunkText } }] })}\n\n`);
-            }
-          }
-          res.write("data: [DONE]\n\n");
-          res.end();
-        } catch (streamError: any) {
-          console.error("[Aura-AI] Gemini Streaming error:", streamError);
-          res.write(`data: ${JSON.stringify({ error: streamError.message })}\n\n`);
-          res.write("data: [DONE]\n\n");
-          res.end();
+        if (!response.body) {
+          throw new Error("No response body from Mistral.");
         }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          const chunk = decoder.decode(value);
+          res.write(chunk);
+        }
+        res.end();
       } else {
-        const result = await chat.sendMessage(lastMessage);
-        res.json({
-          choices: [{
-            message: {
-              content: result.response.text()
-            }
-          }]
-        });
+        const data = await response.json();
+        res.json(data);
       }
     } catch (error: any) {
       console.error("[Aura-AI] General API error:", error);
@@ -341,9 +339,9 @@ async function startServer() {
         return res.status(400).json({ error: "Messages array is required." });
       }
 
-      const geminiKey = process.env.GEMINI_API_KEY;
-      if (!geminiKey) {
-        console.warn("[Agent] Missing GEMINI_API_KEY for system prompt agent.");
+      const mistralKey = process.env.MISTRAL_API_KEY;
+      if (!mistralKey) {
+        console.warn("[Agent] Missing MISTRAL_API_KEY for system prompt agent.");
       }
       const agentSystemPrompt = `You are Aura-AI in Agent Mode, an expert software architect created by 'يوسف محمد عبد الفتاح'.
 Your goal is to scaffold COMPLETE project structures. Respond in Arabic.
@@ -369,25 +367,32 @@ ENVIRONMENT: Linux shell for file operations (mkdir, cat, echo).`;
         return res.end();
       }
 
-      console.log(`[Agent] Initializing Gemini chat with model: gemini-3.1-flash`);
-      const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash" });
-
-      let currentHistory: any[] = messages.slice(-20).map((m: any) => ({
-        role: m.role === "assistant" ? "model" : "user",
-        parts: [{ text: m.content }]
-      }));
-
-      // Ensure the first message is user if we have history, otherwise Gemini chat fails
-      if (currentHistory.length > 0 && currentHistory[0].role === "model") {
-        currentHistory.shift();
-      }
-
-      const chat = model.startChat({
-        history: currentHistory,
-        generationConfig: {
-          maxOutputTokens: 8192,
+      console.log(`[Agent] Initializing Mistral chat with model: codestral-latest`);
+      
+      const fetchMistral = async (messages: any[]) => {
+        const response = await fetch("https://api.mistral.ai/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${mistralKey}`,
+          },
+          body: JSON.stringify({
+            model: "codestral-latest",
+            messages: messages,
+            response_format: { type: "json_object" }
+          }),
+        });
+        if (!response.ok) {
+          const err = await response.json();
+          throw new Error(`Mistral Error: ${err.message || response.statusText}`);
         }
-      });
+        return await response.json();
+      };
+
+      let history = messages.slice(-20).map((m: any) => ({
+        role: m.role,
+        content: m.content
+      }));
 
       let iterations = 0;
       const MAX_ITERATIONS = 100;
@@ -397,8 +402,13 @@ ENVIRONMENT: Linux shell for file operations (mkdir, cat, echo).`;
         console.log(`[Agent-Loop] Iteration ${iterations}`);
 
         try {
-          const result = await chat.sendMessage([{ text: agentSystemPrompt + "\n\nProceed with the next step." }]);
-          const content = result.response.text();
+          const mistralResponse = await fetchMistral([
+            { role: "system", content: agentSystemPrompt },
+            ...history,
+            { role: "user", content: "Proceed with the next step." }
+          ]);
+
+          const content = mistralResponse.choices[0].message.content;
 
           if (!content) {
             throw new Error("The model returned an empty response.");
@@ -443,10 +453,9 @@ ENVIRONMENT: Linux shell for file operations (mkdir, cat, echo).`;
             console.log(`[Agent] Output: ${cmdOutput.substring(0, 100)}...`);
             res.write(`data: ${JSON.stringify({ type: "terminal_output", output: cmdOutput })}\n\n`);
 
-            // In Gemini chat, we just send the next message in the same chat session
-            // The history is maintained automatically by the `chat` object
-            // We need to feed back the command output to the model
-            await chat.sendMessage([{ text: `Command Output:\n${cmdOutput}` }]);
+            // Feedback output to history
+            history.push({ role: "assistant", content: JSON.stringify(parsed) });
+            history.push({ role: "user", content: `Command Output:\n${cmdOutput}` });
           } else {
             // Tool is "none", task finished
             break;

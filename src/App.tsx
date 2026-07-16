@@ -45,7 +45,7 @@ export default function App() {
       temperature: 0.7,
       maxTokens: 2048,
       apiEndpoint: "https://hardemo-aura-ai.hf.space/v1",
-      modelName: "Gemini 3.1 Flash",
+      modelName: "Codestral",
       buildFramework: "flutter",
     };
   });
@@ -1112,7 +1112,7 @@ export default function App() {
               isLoading={isLoading}
             />
             <p className="mt-2 text-center text-[10px] text-neutral-600 font-mono select-none">
-              🔒 Connected securely to Gemini 3.1 Flash • All data cached locally.
+              🔒 Connected securely to Codestral Engine • All data cached locally.
             </p>
           </div>
         </footer>

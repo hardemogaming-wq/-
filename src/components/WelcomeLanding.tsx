@@ -49,7 +49,7 @@ export default function WelcomeLanding({ onSelectSuggestion }: WelcomeLandingPro
         </h1>
         <p className="mx-auto max-w-xl text-sm md:text-base text-neutral-400/90 leading-relaxed font-sans">
           Welcome to your advanced software engineering assistant. Powered by{" "}
-          <span className="text-teal-400 font-mono font-medium">Gemini 3.1 Flash</span>. Optimized for extreme reasoning, rapid scripting, and logical analysis.
+          <span className="text-teal-400 font-mono font-medium">Codestral Engine</span>. Optimized for extreme reasoning, rapid scripting, and logical analysis.
         </p>
       </div>
 
