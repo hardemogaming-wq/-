@@ -364,17 +364,17 @@ async function startServer() {
       const openrouterKey = process.env.OPENROUTER_API_KEY;
       const hfToken = process.env.HUGGINGFACE_TOKEN || process.env.HF_TOKEN;
       const agentSystemPrompt = `You are Aura-AI in Agent Mode, an expert software architect created by 'يوسف محمد عبد الفتاح'.
-Your goal is to build COMPLETE, production-ready applications. Respond in the user's language (Arabic).
+Your goal is to scaffold COMPLETE project structures. Respond in Arabic.
 
 STRICT OPERATIONAL RULES:
-1. OUTPUT FORMAT: You MUST output ONLY a single RAW JSON object. NO markdown code blocks (NO \`\`\`json). NO text outside the JSON.
+1. OUTPUT FORMAT: Output ONLY a single RAW JSON object. NO markdown, NO extra text.
 2. JSON SCHEMA: {"thought": "reasoning", "tool": "run_command" or "none", "command": "bash command", "response_to_user": "Arabic update"}.
-3. FILE CREATION: You MUST always run 'mkdir -p path/to/dir' before 'cat << 'EOF' > path/to/dir/file' to avoid "Directory nonexistent" errors.
-4. PROJECT STRUCTURE: For Flutter, create 'pubspec.yaml' and 'lib/' in the current directory './'. Do NOT use /tmp/.
-5. AUTONOMY: Proceed building file by file (Models, Services, Screens, Main) until the app is fully functional.
-6. COMPLETION: Set tool to "none" ONLY when every single file required for the app to run is created.
+3. FILE GENERATION FOCUS: Your primary job is to write the code files. DO NOT try to run the app, DO NOT run 'flutter' commands, and DO NOT check for SDK installations. Assume the environment is for FILE WRITING only.
+4. ROBUST FOLDER CREATION: Always run 'mkdir -p' before creating a file in a subdirectory.
+5. AUTONOMY: Proceed through all layers (Models, UI, Logic) until the folder structure is a complete, valid project ready for GitHub.
+6. COMPLETION: Stop only when the entire codebase is written.
 
-ENVIRONMENT: Linux with Node.js, Python, Flutter, and Git.`;
+ENVIRONMENT: Linux shell for file operations (mkdir, cat, echo).`;
 
       const maxAgentHistory = 20;
       const historyToBatch = messages.slice(-maxAgentHistory);
@@ -399,7 +399,7 @@ ENVIRONMENT: Linux with Node.js, Python, Flutter, and Git.`;
       let currentHistory = sanitizeMessages(historyToBatch, agentSystemPrompt);
 
       let iterations = 0;
-      const MAX_ITERATIONS = 50;
+      const MAX_ITERATIONS = 100;
 
       while (iterations < MAX_ITERATIONS) {
         iterations++;
